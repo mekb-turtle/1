@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
 						if (out_flag) INVALID;
 						out_flag = 1;
 					}
-					else if (strcmp(argv[i], "-?") == 0 || strcmp(argv[i], "--help")    == 0) { INVALID; }
+					else if (strcmp(argv[i], "-?") == 0 || strcmp(argv[i], "--help") == 0) { INVALID; }
 					else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--hexdump") == 0) {
 						if (hexdump_done) INVALID;
 						hexdump_flag = hexdump_done = 1;
@@ -61,19 +61,19 @@ int main(int argc, char* argv[]) {
 	if (verbose_flag) {
 #define REPLACE(a, b, c) (strcmp(a, b) == 0 ? c : a)
 		if (input_len == 1) {
-			fprintf(stderr, "Reading from: %s\n", REPLACE(input[0],  STDIN,  "stdin"));
+			fprintf(stderr, "Reading from: %s\n", REPLACE(input[0], STDIN, "stdin"));
 		} else {
 			fprintf(stderr, "Reading from:\n");
 			for (size_t i = 0; i < input_len; ++i) {
-				fprintf(stderr, " %s\n",          REPLACE(input[i],  STDIN,  "stdin"));
+				fprintf(stderr, " %s\n", REPLACE(input[i], STDIN, "stdin"));
 			}
 		}
 		if (output_len == 1) {
-			fprintf(stderr, "Writing to: %s\n",   REPLACE(output[0], STDOUT, "stdout"));
+			fprintf(stderr, "Writing to: %s\n", REPLACE(output[0], STDOUT, "stdout"));
 		} else {
 			fprintf(stderr, "Writing to:\n");
 			for (size_t i = 0; i < output_len; ++i) {
-				fprintf(stderr, " %s\n",          REPLACE(output[i], STDOUT, "stdout"));
+				fprintf(stderr, " %s\n", REPLACE(output[i], STDOUT, "stdout"));
 			}
 		}
 	}
