@@ -2,16 +2,18 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <errno.h>
 #define STDIN "-"
 #define STDOUT "-"
+#define STDERR "!"
 int usage(char *argv0) {
 	fprintf(stderr, "\
 Usage: %s <in files> -o <out files>\n\
 	-h --hexdump : output in hex instead\n\
 	-? --help    : return this help menu\n\
 	-v --verbose : report what it's doing to stderr\n\
-	          <in files> : use "STDIN " for stdin (default)  or use a file name\n\
-	-o --out <out files> : use "STDOUT" for stdout (default) or use a file name\n\
+	          <in files> : use "STDIN " for stdin (default), or use a file name\n\
+	-o --out <out files> : use "STDOUT" for stdout (default), use "STDERR" for stderr, or use a file name\n\
 ", argv0);
 	return 2;
 }
@@ -59,7 +61,8 @@ int main(int argc, char* argv[]) {
 		if (output_len == 0) { ++output_len; output[0] = "-"; }
 	}
 	if (verbose_flag) {
-#define REPLACE(a, b, c) (strcmp(a, b) == 0 ? c : a)
+#define REPLACE(a, b0, b1) (strcmp(a, b0) == 0 ? b1 : a)
+#define REPLACE2(a, b0, b1, c0, c1) (strcmp(a, b0) == 0 ? b1 : strcmp(a, c0) == 0 ? c1 : a)
 		if (input_len == 1) {
 			fprintf(stderr, "Reading from: %s\n", REPLACE(input[0], STDIN, "stdin"));
 		} else {
@@ -69,15 +72,48 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		if (output_len == 1) {
-			fprintf(stderr, "Writing to: %s\n", REPLACE(output[0], STDOUT, "stdout"));
+			fprintf(stderr, "Writing to: %s\n", REPLACE2(output[0], STDOUT, "stdout", STDERR, "stderr"));
 		} else {
 			fprintf(stderr, "Writing to:\n");
 			for (size_t i = 0; i < output_len; ++i) {
-				fprintf(stderr, " %s\n", REPLACE(output[i], STDOUT, "stdout"));
+				fprintf(stderr, " %s\n", REPLACE2(output[i], STDOUT, "stdout", STDERR, "stderr"));
 			}
 		}
+		fprintf(stderr, "\n");
 	}
 	FILE* input_streams[input_len];
 	FILE* output_streams[output_len];
+#define ERROR(x) { fprintf(stderr, "%s: %s\n", x, strerror(errno)); return errno; }
+	for (size_t i = 0; i < input_len; ++i) {
+		if (strcmp(input[i], STDIN) == 0) {
+			input_streams[i] = stdin;
+		} else {
+			input_streams[i] = fopen(input[i], "r");
+		}
+		if (!input_streams[i]) ERROR(input[i]);
+	}
+	for (size_t i = 0; i < output_len; ++i) {
+		if (strcmp(input[i], STDOUT) == 0) {
+			output_streams[i] = stdout;
+		} else if (strcmp(input[i], STDERR) == 0) {
+			output_streams[i] = stderr;
+		} else {
+			output_streams[i] = fopen(output[i], "w");
+		}
+		if (!output_streams[i]) ERROR(output[i]);
+	}
+	for (size_t i = 0; i < input_len; ++i) {
+#define READ_SIZE 4096
+		char* data = malloc(READ_SIZE);
+		size_t len = 0;
+		while ((len = fread(data, 1, READ_SIZE, input_streams[i])) > 0) {
+			for (size_t j = 0; j < output_len; ++j) {
+				fwrite(data, 1, len, output_streams[j]);
+			}
+		}
+	}
+	if (verbose_flag) {
+		fprintf(stderr, "Finished\n");
+	}
 	return 0;
 }
