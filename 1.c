@@ -16,10 +16,10 @@ Usage: %s <in files> -o <out files>\n\n\
 	-o --out <out files>  : use "STDOUT" for stdout (default), use "STDERR" for stderr, or use a file name\n\
 	-h --hexdump          : output in hex instead\n\n\
 	-b --block <bytes>    : block size, how many bytes to read at once, see below for what to put for size, 4096 is default\n\
-	-c --count <blocks>   : count blocks, amount of blocks to read, this means total blocks not blocks for each input file, 0 means whole file (default)\n\
-	-s --skip <blocks>    : skip first n blocks in input, 0 is default\n\
-	-S --seek <blocks>    : skip first n blocks in output, 0 is default\n\n\
-	the last 4 arguments must be followed a number, and optionally suffixed by one of these which will multiply it\n\
+	-c --count <blocks>   : count blocks, amount of blocks to read, this means total blocks not blocks for each input file, 0 means whole file (default)\n"
+/*	-s --skip <blocks>    : skip first n blocks in input, 0 is default\n\
+	-S --seek <blocks>    : skip first n blocks in output, 0 is default\n\n*/"\
+	the last 2 flags must be followed a number, and optionally suffixed by one of these which will multiply it\n\
 		K, KiB, KIB, kib: 1024\n\
 		M, MiB, MIB, mib: 1024^2, 1048576\n\
 		G, GiB, GIB, gib: 1024^3, 1073741824\n\
@@ -113,8 +113,8 @@ bool parse_bytes(bool start, uint64_t* res, char* str) {
 }
 int main(int argc, char* argv[]) {
 #define INVALID { return usage(argv[0]); }
-	bool hexdump_flag = 0;
-	bool verbose_flag = 0;
+	bool hexdump = 0;
+	bool verbose = 0;
 	char* input[argc];
 	size_t input_len = 0;
 	char* output[argc];
@@ -122,8 +122,8 @@ int main(int argc, char* argv[]) {
 	// defaults
 	uint64_t block = 4096;
 	uint64_t count = 0;
-	uint64_t skip = 0;
-	uint64_t seek = 0;
+//	uint64_t skip = 0;
+//	uint64_t seek = 0;
 	{
 		// command handling
 		bool hexdump_done = 0;
@@ -132,12 +132,12 @@ int main(int argc, char* argv[]) {
 		bool flag_done = 0;
 		bool block_flag = 0;
 		bool count_flag = 0;
-		bool skip_flag = 0;
-		bool seek_flag = 0;
+//		bool skip_flag = 0;
+//		bool seek_flag = 0;
 		bool block_done = 0;
 		bool count_done = 0;
-		bool skip_done = 0;
-		bool seek_done = 0;
+//		bool skip_done = 0;
+//		bool seek_done = 0;
 		for (int i = 1; i < argc; ++i) {
 			if (block_flag) {
 				block_flag = 0;
@@ -145,12 +145,12 @@ int main(int argc, char* argv[]) {
 			} else if (count_flag) {
 				count_flag = 0;
 				if (!parse_bytes(0, &count, argv[i])) INVALID
-			} else if (skip_flag) {
-				skip_flag = 0;
-				if (!parse_bytes(0, &skip, argv[i])) INVALID
-			} else if (seek_flag) {
-				seek_flag = 0;
-				if (!parse_bytes(0, &seek, argv[i])) INVALID
+//			} else if (skip_flag) {
+//				skip_flag = 0;
+//				if (!parse_bytes(0, &skip, argv[i])) INVALID
+//			} else if (seek_flag) {
+//				seek_flag = 0;
+//				if (!parse_bytes(0, &seek, argv[i])) INVALID
 			} else if (argv[i][0] == '-' && argv[i][1] != '\0' && !flag_done) {
 				if (argv[i][1] == '-' && argv[i][2] == '\0') flag_done = 1; // -- denotes end of flags (and -o)
 				else {
@@ -160,10 +160,10 @@ int main(int argc, char* argv[]) {
 					} else if (strcmp(argv[i], "-?") == 0 || strcmp(argv[i], "--help") == 0) { INVALID
 					} else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--hexdump") == 0) {
 						if (hexdump_done) INVALID
-						hexdump_flag = hexdump_done = 1;
+						hexdump = hexdump_done = 1;
 					} else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
 						if (verbose_done) INVALID
-						verbose_flag = verbose_done = 1;
+						verbose = verbose_done = 1;
 					} else if (i >= argc - 1) { INVALID
 					} else if (strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--block") == 0) {
 						if (block_done) INVALID
@@ -171,12 +171,12 @@ int main(int argc, char* argv[]) {
 					} else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--count") == 0) {
 						if (count_done) INVALID
 						count_flag = count_done = 1;
-					} else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--skip") == 0) {
-						if (skip_done) INVALID
-						skip_flag = skip_done = 1;
-					} else if (strcmp(argv[i], "-S") == 0 || strcmp(argv[i], "--seek") == 0) {
-						if (seek_done) INVALID
-						seek_flag = seek_done = 1;
+//					} else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--skip") == 0) {
+//						if (skip_done) INVALID
+//						skip_flag = skip_done = 1;
+//					} else if (strcmp(argv[i], "-S") == 0 || strcmp(argv[i], "--seek") == 0) {
+//						if (seek_done) INVALID
+//						seek_flag = seek_done = 1;
 					}
 					else INVALID
 				}
@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
 			}
 			if (!output_streams[i]) ERROR(output[i]);
 		}
-		if (verbose_flag) {
+		if (verbose) {
 			if (input_len == 1) {
 				fprintf(stderr, "Reading from: %s\n", input_streams_names[0]);
 			} else {
@@ -237,21 +237,30 @@ int main(int argc, char* argv[]) {
 			}
 			fprintf(stderr, "Block Size: %s\n", display_bytes(block));
 			fprintf(stderr, "Count: %s\n",      display_bytes(count));
-			fprintf(stderr, "Skip: %s\n",       display_bytes(skip));
-			fprintf(stderr, "Seek: %s\n\n",     display_bytes(seek));
+//			fprintf(stderr, "Skip: %s\n",       display_bytes(skip));
+//			fprintf(stderr, "Seek: %s\n\n",     display_bytes(seek));
 		}
 	}
+	uint64_t blocks_read = 0;
 	for (size_t i = 0; i < input_len; ++i) {
 		char* data = malloc(block);
-		size_t len = 0;
+		uint64_t len = 0;
 		while ((len = fread(data, 1, block, input_streams[i])) > 0) {
 			for (size_t j = 0; j < output_len; ++j) {
-				fwrite(data, 1, len, output_streams[j]);
+				if (hexdump) {
+					for (uint64_t k = 0; k < len; ++k) {
+						fprintf(output_streams[j], "%02x", data[k]);
+					}
+				} else {
+					fwrite(data, 1, len, output_streams[j]);
+				}
+			}
+			if (count != 0 && ++blocks_read >= count) {
+				if (verbose) fprintf(stderr, "Read count blocks, finished\n");
+				return 0;
 			}
 		}
 	}
-	if (verbose_flag) {
-		fprintf(stderr, "Finished\n");
-	}
+	if (verbose) fprintf(stderr, "Finished\n");
 	return 0;
 }
