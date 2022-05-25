@@ -36,37 +36,30 @@ Usage: %s <in files> -o <out files>\n\n\
 ", argv0);
 	return 2;
 }
-char* preview_bytes(uint64_t bytes) {
+char* display_bytes(uint64_t bytes) {
+	if (bytes == 0) return "0";
 	uint64_t e = 0;
 	uint64_t p = 0;
 	uint64_t t = 0;
 	uint64_t g = 0;
 	uint64_t m = 0;
 	uint64_t k = 0;
-	printf("%li\n", bytes);
-	while (bytes >= (uint64_t) 1<<60) { ++e; bytes -= (uint64_t) 1<<60; }
-	while (bytes >= (uint64_t) 1<<50) { ++p; bytes -= (uint64_t) 1<<50; }
-	while (bytes >= (uint64_t) 1<<40) { ++t; bytes -= (uint64_t) 1<<40; }
-	while (bytes >= (uint64_t) 1<<30) { ++g; bytes -= (uint64_t) 1<<30; }
-	while (bytes >= (uint64_t) 1<<20) { ++m; bytes -= (uint64_t) 1<<20; }
-	while (bytes >= (uint64_t) 1<<10) { ++k; bytes -= (uint64_t) 1<<10; }
+	while (bytes >= (uint64_t) 1<<60) { ++e; bytes -= (uint64_t) 1<<60; } // subtracts 1 exbi until 0, adds 1 to e each time
+	while (bytes >= (uint64_t) 1<<50) { ++p; bytes -= (uint64_t) 1<<50; } // subtracts 1 pebi until 0, adds 1 to p each time
+	while (bytes >= (uint64_t) 1<<40) { ++t; bytes -= (uint64_t) 1<<40; } // subtracts 1 tebi until 0, adds 1 to t each time
+	while (bytes >= (uint64_t) 1<<30) { ++g; bytes -= (uint64_t) 1<<30; } // subtracts 1 gibi until 0, adds 1 to g each time
+	while (bytes >= (uint64_t) 1<<20) { ++m; bytes -= (uint64_t) 1<<20; } // subtracts 1 mebi until 0, adds 1 to m each time
+	while (bytes >= (uint64_t) 1<<10) { ++k; bytes -= (uint64_t) 1<<10; } // subtracts 1 kibi until 0, adds 1 to k each time
 	char* res = malloc(64);
 	res[0] = 0;
-	printf("%li\n", e);
-	printf("%li\n", p);
-	printf("%li\n", t);
-	printf("%li\n", g);
-	printf("%li\n", m);
-	printf("%li\n", k);
-	printf("%li\n", bytes);
-	if (e     > 0) { char* tmp = malloc(64); sprintf(res, "%liE %s", e,     tmp); free(res); res = tmp; }
-	if (p     > 0) { char* tmp = malloc(64); sprintf(res, "%liP %s", p,     tmp); free(res); res = tmp; }
-	if (t     > 0) { char* tmp = malloc(64); sprintf(res, "%liT %s", t,     tmp); free(res); res = tmp; }
-	if (g     > 0) { char* tmp = malloc(64); sprintf(res, "%liG %s", g,     tmp); free(res); res = tmp; }
-	if (m     > 0) { char* tmp = malloc(64); sprintf(res, "%liM %s", m,     tmp); free(res); res = tmp; }
-	if (k     > 0) { char* tmp = malloc(64); sprintf(res, "%liK %s", k,     tmp); free(res); res = tmp; }
-	if (bytes > 0) { char* tmp = malloc(64); sprintf(res, "%li %s",  bytes, tmp); free(res); res = tmp; }
-	res[strlen(res) - 1] = 0;
+	// horrible code, i'm sorry
+	if (bytes > 0) { char* tmp = malloc(64); sprintf(tmp, "%li %s",  bytes, res); free(res); res = tmp; } // adds bytes to start of string
+	if (k     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liK %s", k,     res); free(res); res = tmp; } // adds k to start of string
+	if (m     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liM %s", m,     res); free(res); res = tmp; } // adds m to start of string
+	if (g     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liG %s", g,     res); free(res); res = tmp; } // adds g to start of string
+	if (t     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liT %s", t,     res); free(res); res = tmp; } // adds t to start of string
+	if (p     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liP %s", p,     res); free(res); res = tmp; } // adds p to start of string
+	if (e     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liE %s", e,     res); free(res); res = tmp; } // adds e to start of string
 	return res;
 }
 bool parse_bytes(bool start, uint64_t* res, char* str) {
@@ -82,33 +75,40 @@ bool parse_bytes(bool start, uint64_t* res, char* str) {
 #define ALPHABETIC(x) ((x>='a'&&x<='z')||(x>='A'&&x<='Z'))
 	for (size_t i = 0; i < len; ++i) {
 		if (NUMERIC(str[i])) {
+			// make sure there are no letters beforehand
 			if (suffix_yet) return 0;
+			// make sure length of numbers is less than or equal to 10
 			if (number_len >= 10) return 0;
 			number_yet = 1;
+			// set the char 
 			number[number_len++] = str[i];
 		} else if (ALPHABETIC(str[i])) {
+			// make sure there has been numbers beforehand
 			if (!number_yet) return 0;
+			// make sure length of suffix is less than or equal to 3
 			if (suffix_len >= 3) return 0;
 			suffix_yet = 1;
+			// set the char
 			suffix[suffix_len++] = str[i];
 		} else return 0;
 	}
-	uint64_t num = atoll(number);
-	//TODO: fix this code
-	if      (strcmp(suffix, "K")  == 0 || strcmp(suffix, "KiB") == 0 || strcmp(suffix, "KIB") == 0 || strcmp(suffix, "kib") == 0) num *= (uint64_t) 1<<10;
-	else if (strcmp(suffix, "M")  == 0 || strcmp(suffix, "MiB") == 0 || strcmp(suffix, "MIB") == 0 || strcmp(suffix, "mib") == 0) num *= (uint64_t) 1<<20;
-	else if (strcmp(suffix, "G")  == 0 || strcmp(suffix, "GiB") == 0 || strcmp(suffix, "GIB") == 0 || strcmp(suffix, "gib") == 0) num *= (uint64_t) 1<<30;
-	else if (strcmp(suffix, "T")  == 0 || strcmp(suffix, "TiB") == 0 || strcmp(suffix, "TIB") == 0 || strcmp(suffix, "tib") == 0) num *= (uint64_t) 1<<40;
-	else if (strcmp(suffix, "P")  == 0 || strcmp(suffix, "PiB") == 0 || strcmp(suffix, "PIB") == 0 || strcmp(suffix, "pib") == 0) num *= (uint64_t) 1<<50;
-	else if (strcmp(suffix, "E")  == 0 || strcmp(suffix, "EiB") == 0 || strcmp(suffix, "EIB") == 0 || strcmp(suffix, "eib") == 0) num *= (uint64_t) 1<<60;
-	else if (strcmp(suffix, "KB") == 0 || strcmp(suffix, "kb")  == 0 || strcmp(suffix, "k")   == 0) num *= 1e3;
-	else if (strcmp(suffix, "MB") == 0 || strcmp(suffix, "mb")  == 0 || strcmp(suffix, "m")   == 0) num *= 1e6;
-	else if (strcmp(suffix, "GB") == 0 || strcmp(suffix, "gb")  == 0 || strcmp(suffix, "g")   == 0) num *= 1e9;
-	else if (strcmp(suffix, "TB") == 0 || strcmp(suffix, "tb")  == 0 || strcmp(suffix, "t")   == 0) num *= 1e12;
-	else if (strcmp(suffix, "PB") == 0 || strcmp(suffix, "pb")  == 0 || strcmp(suffix, "p")   == 0) num *= 1e15;
-	else if (strcmp(suffix, "EB") == 0 || strcmp(suffix, "eb")  == 0 || strcmp(suffix, "e")   == 0) num *= 1e18;
+	uint64_t num = atoll(number); // convert the number
+	if (start == 1 && num == 0) return 0; // don't allow 0 if start is 1
+	if (suffix_len == 0); // allow no suffix
+	else if ((suffix_len == 1 && strncmp(suffix, "K", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "KiB", 3) == 0 || strncmp(suffix, "KIB", 3) == 0 || strncmp(suffix, "kib", 3) == 0))) num *= (uint64_t) 1<<10; // K, KiB, KIB, kib
+	else if ((suffix_len == 1 && strncmp(suffix, "M", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "MiB", 3) == 0 || strncmp(suffix, "MIB", 3) == 0 || strncmp(suffix, "mib", 3) == 0))) num *= (uint64_t) 1<<20; // M, MiB, MIB, mib
+	else if ((suffix_len == 1 && strncmp(suffix, "G", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "GiB", 3) == 0 || strncmp(suffix, "GIB", 3) == 0 || strncmp(suffix, "gib", 3) == 0))) num *= (uint64_t) 1<<30; // G, GiB, GIB, gib
+	else if ((suffix_len == 1 && strncmp(suffix, "T", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "TiB", 3) == 0 || strncmp(suffix, "TIB", 3) == 0 || strncmp(suffix, "tib", 3) == 0))) num *= (uint64_t) 1<<40; // T, TiB, TIB, tib
+	else if ((suffix_len == 1 && strncmp(suffix, "P", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "PiB", 3) == 0 || strncmp(suffix, "PIB", 3) == 0 || strncmp(suffix, "pib", 3) == 0))) num *= (uint64_t) 1<<50; // P, PiB, PIB, pib
+	else if ((suffix_len == 1 && strncmp(suffix, "E", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "EiB", 3) == 0 || strncmp(suffix, "EIB", 3) == 0 || strncmp(suffix, "eib", 3) == 0))) num *= (uint64_t) 1<<60; // E, EiB, EIB, eib
+	else if ((suffix_len == 2 && (strncmp(suffix, "KB", 2) == 0 || strncmp(suffix, "kb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "k", 1) == 0)) num *= 1e3;  // KB, kb, k
+	else if ((suffix_len == 2 && (strncmp(suffix, "MB", 2) == 0 || strncmp(suffix, "mb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "m", 1) == 0)) num *= 1e6;  // MB, mb, m
+	else if ((suffix_len == 2 && (strncmp(suffix, "GB", 2) == 0 || strncmp(suffix, "gb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "g", 1) == 0)) num *= 1e9;  // GB, gb, g
+	else if ((suffix_len == 2 && (strncmp(suffix, "TB", 2) == 0 || strncmp(suffix, "tb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "t", 1) == 0)) num *= 1e12; // TB, tb, t
+	else if ((suffix_len == 2 && (strncmp(suffix, "PB", 2) == 0 || strncmp(suffix, "pb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "p", 1) == 0)) num *= 1e15; // PB, pb, p
+	else if ((suffix_len == 2 && (strncmp(suffix, "EB", 2) == 0 || strncmp(suffix, "eb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "e", 1) == 0)) num *= 1e18; // EB, eb, e
 	else return 0;
-	*res = start;
+	*res = num;
 	return 1;
 }
 int main(int argc, char* argv[]) {
@@ -119,11 +119,13 @@ int main(int argc, char* argv[]) {
 	size_t input_len = 0;
 	char* output[argc];
 	size_t output_len = 0;
+	// defaults
 	uint64_t block = 4096;
 	uint64_t count = 0;
 	uint64_t skip = 0;
 	uint64_t seek = 0;
 	{
+		// command handling
 		bool hexdump_done = 0;
 		bool verbose_done = 0;
 		bool out_flag = 0;
@@ -139,18 +141,18 @@ int main(int argc, char* argv[]) {
 		for (int i = 1; i < argc; ++i) {
 			if (block_flag) {
 				block_flag = 0;
-				if (!parse_bytes(0, &block, argv[i])) INVALID
+				if (!parse_bytes(1, &block, argv[i])) INVALID
 			} else if (count_flag) {
 				count_flag = 0;
 				if (!parse_bytes(0, &count, argv[i])) INVALID
 			} else if (skip_flag) {
 				skip_flag = 0;
-				if (!parse_bytes(1, &skip, argv[i])) INVALID
+				if (!parse_bytes(0, &skip, argv[i])) INVALID
 			} else if (seek_flag) {
 				seek_flag = 0;
-				if (!parse_bytes(1, &seek, argv[i])) INVALID
+				if (!parse_bytes(0, &seek, argv[i])) INVALID
 			} else if (argv[i][0] == '-' && argv[i][1] != '\0' && !flag_done) {
-				if (argv[i][1] == '-' && argv[i][2] == '\0') flag_done = 1;
+				if (argv[i][1] == '-' && argv[i][2] == '\0') flag_done = 1; // -- denotes end of flags (and -o)
 				else {
 					if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--out") == 0) {
 						if (out_flag) INVALID
@@ -179,13 +181,13 @@ int main(int argc, char* argv[]) {
 					else INVALID
 				}
 			} else if (out_flag) {
-				output[output_len++] = argv[i];
+				output[output_len++] = argv[i]; // add to output
 			} else {
-				input[input_len++] = argv[i];
+				input[input_len++] = argv[i]; // add to input
 			}
 		}
-		if (input_len  == 0) { ++input_len;  input[0]  = "-"; }
-		if (output_len == 0) { ++output_len; output[0] = "-"; }
+		if (input_len  == 0) { ++input_len;  input[0]  = "-"; } // add stdin if no arguments
+		if (output_len == 0) { ++output_len; output[0] = "-"; } // add stdout if no arguments
 	}
 	FILE* input_streams[input_len];
 	FILE* output_streams[output_len];
@@ -195,23 +197,23 @@ int main(int argc, char* argv[]) {
 		char* output_streams_names[output_len];
 		for (size_t i = 0; i < input_len; ++i) {
 			if (strcmp(input[i], STDIN) == 0) {
-				input_streams[i] = stdin;
+				input_streams[i] = stdin; // set to stdin
 				input_streams_names[i] = "stdin";
 			} else {
-				input_streams[i] = fopen(input[i], "r");
+				input_streams[i] = fopen(input[i], "r"); // open file
 				input_streams_names[i] = input[i];
 			}
 			if (!input_streams[i]) ERROR(input[i]);
 		}
 		for (size_t i = 0; i < output_len; ++i) {
 			if (strcmp(output[i], STDOUT) == 0) {
-				output_streams[i] = stdout;
+				output_streams[i] = stdout; // set to stdout
 				output_streams_names[i] = "stdout";
 			} else if (strcmp(output[i], STDERR) == 0) {
-				output_streams[i] = stderr;
+				output_streams[i] = stderr; // set to stderr
 				output_streams_names[i] = "stderr";
 			} else {
-				output_streams[i] = fopen(output[i], "w");
+				output_streams[i] = fopen(output[i], "w"); // open file
 				output_streams_names[i] = output[i];
 			}
 			if (!output_streams[i]) ERROR(output[i]);
@@ -233,14 +235,16 @@ int main(int argc, char* argv[]) {
 					fprintf(stderr, " %s\n", output_streams_names[i]);
 				}
 			}
-			fprintf(stderr, "Block Size: %s\n", preview_bytes(block));
+			fprintf(stderr, "Block Size: %s\n", display_bytes(block));
+			fprintf(stderr, "Count: %s\n",      display_bytes(count));
+			fprintf(stderr, "Skip: %s\n",       display_bytes(skip));
+			fprintf(stderr, "Seek: %s\n\n",     display_bytes(seek));
 		}
 	}
 	for (size_t i = 0; i < input_len; ++i) {
-#define READ_SIZE 4096
-		char* data = malloc(READ_SIZE);
+		char* data = malloc(block);
 		size_t len = 0;
-		while ((len = fread(data, 1, READ_SIZE, input_streams[i])) > 0) {
+		while ((len = fread(data, 1, block, input_streams[i])) > 0) {
 			for (size_t j = 0; j < output_len; ++j) {
 				fwrite(data, 1, len, output_streams[j]);
 			}
