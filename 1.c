@@ -19,7 +19,8 @@ Usage: %s <in files> -o <out files>\n\n\
 	-h --hexdump          : output in hex instead\n\
 	-m --delay            : milliseconds to sleep between each block\n\n\
 	-b --block <bytes>    : block size, how many bytes to read at once, see below for what to put for size, 4096 is default\n\
-	-c --count <blocks>   : count blocks, amount of blocks to read, this means total blocks not blocks for each input file, 0 means whole file (default)\n"
+	-c --count <blocks>   : count blocks, amount of blocks to read, this means total blocks not blocks for each input file, 0 means whole file (default)\n\
+	                        this won't be accurate if we are reading less than the block size\n"
 /*	-s --skip <blocks>    : skip first n blocks in input, 0 is default\n\
 	-S --seek <blocks>    : skip first n blocks in output, 0 is default\n\n*/"\
 	the last 2 flags must be followed a number, and optionally suffixed by one of these which will multiply it\n\
@@ -291,7 +292,16 @@ int main(int argc, char* argv[]) {
 	for (size_t i = 0; i < input_len; ++i) {
 		uint8_t* data = malloc(block);
 		uint64_t len = 0;
-		while ((len = fread(data, 1, block, input_streams[i])) > 0) {
+		while (1) {
+			if (feof(input_streams[i])) {
+				if (verbose) fprintf(stderr, "EOF, finished\n");
+				return 0;
+			}
+			if (ferror(input_streams[i])) {
+				if (verbose) fprintf(stderr, "Error\n");
+				return 1;
+			}
+			len = fread(data, 1, block, input_streams[i]);
 			for (size_t j = 0; j < output_len; ++j) {
 				if (hexdump) {
 					for (uint64_t k = 0; k < len; ++k) {
@@ -302,9 +312,11 @@ int main(int argc, char* argv[]) {
 				}
 			}
 			if (delay > 0) delay_(delay);
-			if (count != 0 && ++blocks_read >= count) {
-				if (verbose) fprintf(stderr, "Read count blocks, finished\n");
-				return 0;
+			if (count != 0) {
+				if (++blocks_read >= count) {
+					if (verbose) fprintf(stderr, "Read count blocks, finished\n");
+					return 0;
+				}
 			}
 		}
 	}
