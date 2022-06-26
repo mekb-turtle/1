@@ -1,3 +1,4 @@
-1
-*.o
-*.swp
+bin/
+obj/
+Makefile
+1.make
