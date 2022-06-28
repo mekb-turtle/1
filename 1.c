@@ -5,10 +5,17 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#ifdef X
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xmu/Atoms.h>
+#endif
 #define RANDOM_FILE "/dev/urandom"
 #define STDIN "-"
 #define STDOUT "-"
 #define STDERR "!"
+#define FILE_PREFIX "f:"
+#define APPEND_PREFIX "a:"
 int usage(char *argv0) {
 	fprintf(stderr, "\
 Usage: %s <in files> -o <out files>\n\n\
@@ -16,8 +23,10 @@ Usage: %s <in files> -o <out files>\n\n\
 	-v --verbose          : report what it's doing to stderr\n\
 	<in files>            : use "STDIN" for stdin (default), or use a file name\n\
 	-o --out <out files>  : use "STDOUT" for stdout (default), use "STDERR" for stderr, or use a file name\n\
+	                        for in files and out files, prefix it with "FILE_PREFIX" to ensure it's treated as a file\n\
+	                        for out files, prefixing with "APPEND_PREFIX" has the same effect as "FILE_PREFIX" but it also appends instead of overwrites\n\
+	                        if an out file and in file are the same, the file's contents will be wiped, if the out file is set to append, the file contents will be doubled\n\
 	-h --hexdump          : output in hex instead\n\
-	-m --delay            : milliseconds to sleep between each block\n\n\
 	-b --block <bytes>    : block size, how many bytes to read at once, see below for what to put for size, 4096 is default\n\
 	-c --count <blocks>   : count blocks, amount of blocks to read, this means total blocks not blocks for each input file, 0 means whole file (default)\n\
 	                        this won't be accurate if we are reading less than the block size\n"
@@ -39,10 +48,6 @@ Usage: %s <in files> -o <out files>\n\n\
 	e.g 123M = 123*1024*1024 = 123*1048576 = 128974848\n\n\
 ", argv0);
 	return 2;
-}
-void delay_(unsigned long ms) {
-	struct timespec r = { ms/1e3, (ms%1000)*1e6 };
-	nanosleep(&r, NULL);
 }
 char* display_bytes(uint64_t bytes) {
 	if (bytes == 0) return "0";
@@ -151,7 +156,6 @@ int main(int argc, char* argv[]) {
 	char* output[argc];
 	size_t output_len = 0;
 	// defaults
-	uint64_t delay = 0;
 	uint64_t block = 4096;
 	uint64_t count = 0;
 //	uint64_t skip = 0;
@@ -162,27 +166,16 @@ int main(int argc, char* argv[]) {
 		bool verbose_done = 0;
 		bool out_flag = 0;
 		bool flag_done = 0;
-		bool delay_flag = 0;
 		bool block_flag = 0;
 		bool count_flag = 0;
 //		bool skip_flag = 0;
 //		bool seek_flag = 0;
-		bool delay_done = 0;
 		bool block_done = 0;
 		bool count_done = 0;
 //		bool skip_done = 0;
 //		bool seek_done = 0;
 		for (int i = 1; i < argc; ++i) {
-			if (delay_flag) {
-				delay_flag = 0;
-				size_t len = strlen(argv[i]);
-				if (len == 0 || len > 10) INVALID
-				for (size_t j = 0; j < len; ++j) {
-					if (!NUMERIC(argv[i][j])) INVALID
-				}
-				delay = atoll(argv[i]);
-				if (!parse_bytes(1, &delay, argv[i])) INVALID
-			} else if (block_flag) {
+			if (block_flag) {
 				block_flag = 0;
 				if (!parse_bytes(1, &block, argv[i])) INVALID
 			} else if (count_flag) {
@@ -208,9 +201,6 @@ int main(int argc, char* argv[]) {
 						if (verbose_done) INVALID
 						verbose = verbose_done = 1;
 					} else if (i >= argc - 1) { INVALID
-					} else if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--delay") == 0) {
-						if (delay_done) INVALID
-						delay_flag = delay_done = 1;
 					} else if (strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "--block") == 0) {
 						if (block_done) INVALID
 						block_flag = block_done = 1;
@@ -241,28 +231,47 @@ int main(int argc, char* argv[]) {
 	{
 		char* input_streams_names[input_len];
 		char* output_streams_names[output_len];
+		size_t file_prefix_len = strlen(FILE_PREFIX);
+		size_t append_prefix_len = strlen(FILE_PREFIX);
 		for (size_t i = 0; i < input_len; ++i) {
-			if (strcmp(input[i], STDIN) == 0) {
+			if (strncmp(input[i], FILE_PREFIX, file_prefix_len) == 0) {
+				char* a = input[i] + file_prefix_len;
+				input_streams[i] = fopen(a, "rb"); // open file, read, binary
+				if (!input_streams[i]) ERROR(input[i]);
+				input_streams_names[i] = a;
+			} else if (strcmp(input[i], STDIN) == 0) {
 				input_streams[i] = stdin; // set to stdin
 				input_streams_names[i] = "stdin";
 			} else {
-				input_streams[i] = fopen(input[i], "r"); // open file
+				input_streams[i] = fopen(input[i], "rb"); // open file, read, binary
+				if (!input_streams[i]) ERROR(input[i]);
 				input_streams_names[i] = input[i];
 			}
-			if (!input_streams[i]) ERROR(input[i]);
 		}
 		for (size_t i = 0; i < output_len; ++i) {
-			if (strcmp(output[i], STDOUT) == 0) {
+			if (strncmp(output[i], APPEND_PREFIX, append_prefix_len) == 0) {
+				char* a = output[i] + append_prefix_len;
+				output_streams[i] = fopen(a, "ab"); // open file, append, binary
+				if (!output_streams[i]) ERROR(a);
+				char* b = malloc(strlen(a));
+				sprintf(b, "%s (append)", a);
+				output_streams_names[i] = b;
+			} else if (strncmp(output[i], FILE_PREFIX, file_prefix_len) == 0) {
+				char* a = output[i] + file_prefix_len;
+				output_streams[i] = fopen(a, "wb"); // open file, write, binary
+				if (!output_streams[i]) ERROR(a);
+				output_streams_names[i] = a;
+			} else if (strcmp(output[i], STDOUT) == 0) {
 				output_streams[i] = stdout; // set to stdout
 				output_streams_names[i] = "stdout";
 			} else if (strcmp(output[i], STDERR) == 0) {
 				output_streams[i] = stderr; // set to stderr
 				output_streams_names[i] = "stderr";
 			} else {
-				output_streams[i] = fopen(output[i], "w"); // open file
+				output_streams[i] = fopen(output[i], "wb"); // open file, write, binary
+				if (!output_streams[i]) ERROR(output[i]);
 				output_streams_names[i] = output[i];
 			}
-			if (!output_streams[i]) ERROR(output[i]);
 		}
 		if (verbose) {
 			if (input_len == 1) {
@@ -281,7 +290,6 @@ int main(int argc, char* argv[]) {
 					fprintf(stderr, " %s\n", output_streams_names[i]);
 				}
 			}
-			fprintf(stderr, "Delay: %s\n",      display_time(delay));
 			fprintf(stderr, "Block Size: %s\n", display_bytes(block));
 			fprintf(stderr, "Count: %s\n",      display_bytes(count));
 //			fprintf(stderr, "Skip: %s\n",       display_bytes(skip));
@@ -311,7 +319,6 @@ int main(int argc, char* argv[]) {
 					fwrite(data, 1, len, output_streams[j]);
 				}
 			}
-			if (delay > 0) delay_(delay);
 			if (count != 0) {
 				if (++blocks_read >= count) {
 					if (verbose) fprintf(stderr, "Read count blocks, finished\n");
