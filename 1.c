@@ -75,29 +75,6 @@ char* display_bytes(uint64_t bytes) {
 	if (e     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liE %s", e,     res); free(res); res = tmp; } // adds e to start of string
 	return res;
 }
-char* display_time(uint64_t ms) {
-	if (ms == 0) return "0ms";
-	uint64_t w = 0;
-	uint64_t d = 0;
-	uint64_t h = 0;
-	uint64_t m = 0;
-	uint64_t s = 0;
-	while (ms >= 1000*60*20*24*7) { ++w; ms -= 1000*60*20*24*7; } // subtracts 1 week until 0, adds 1 to w each time
-	while (ms >= 1000*60*60*24  ) { ++d; ms -= 1000*60*60*24;   } // subtracts 1 day  until 0, adds 1 to d each time
-	while (ms >= 1000*60*60     ) { ++h; ms -= 1000*60*60;      } // subtracts 1 hour until 0, adds 1 to h each time
-	while (ms >= 1000*60        ) { ++m; ms -= 1000*60;         } // subtracts 1 min  until 0, adds 1 to m each time
-	while (ms >= 1000           ) { ++s; ms -= 1000;            } // subtracts 1 sec  until 0, adds 1 to s each time
-	char* res = malloc(64);
-	res[0] = 0;
-	// horrible code, i'm sorry
-	if (ms > 0) { char* tmp = malloc(64); sprintf(tmp, "%lims %s", ms, res); free(res); res = tmp; } // adds ms to start of string
-	if (s  > 0) { char* tmp = malloc(64); sprintf(tmp, "%lis %s",  s,  res); free(res); res = tmp; } // adds k  to start of string
-	if (m  > 0) { char* tmp = malloc(64); sprintf(tmp, "%lim %s",  m,  res); free(res); res = tmp; } // adds m  to start of string
-	if (h  > 0) { char* tmp = malloc(64); sprintf(tmp, "%lih %s",  h,  res); free(res); res = tmp; } // adds g  to start of string
-	if (d  > 0) { char* tmp = malloc(64); sprintf(tmp, "%lid %s",  d,  res); free(res); res = tmp; } // adds t  to start of string
-	if (w  > 0) { char* tmp = malloc(64); sprintf(tmp, "%liw %s",  w,  res); free(res); res = tmp; } // adds p  to start of string
-	return res;
-}
 bool parse_bytes(bool start, uint64_t* res, char* str) {
 	size_t len = strlen(str);
 	bool number_yet = 0;
