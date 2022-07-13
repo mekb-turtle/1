@@ -51,28 +51,27 @@ Usage: %s <in files> -o <out files>\n\n\
 }
 char* display_bytes(uint64_t bytes) {
 	if (bytes == 0) return "0";
-	uint64_t e = 0;
-	uint64_t p = 0;
-	uint64_t t = 0;
-	uint64_t g = 0;
-	uint64_t m = 0;
-	uint64_t k = 0;
-	while (bytes >= (uint64_t) 1<<60) { ++e; bytes -= (uint64_t) 1<<60; } // subtracts 1 exbi until 0, adds 1 to e each time
-	while (bytes >= (uint64_t) 1<<50) { ++p; bytes -= (uint64_t) 1<<50; } // subtracts 1 pebi until 0, adds 1 to p each time
-	while (bytes >= (uint64_t) 1<<40) { ++t; bytes -= (uint64_t) 1<<40; } // subtracts 1 tebi until 0, adds 1 to t each time
-	while (bytes >= (uint64_t) 1<<30) { ++g; bytes -= (uint64_t) 1<<30; } // subtracts 1 gibi until 0, adds 1 to g each time
-	while (bytes >= (uint64_t) 1<<20) { ++m; bytes -= (uint64_t) 1<<20; } // subtracts 1 mebi until 0, adds 1 to m each time
-	while (bytes >= (uint64_t) 1<<10) { ++k; bytes -= (uint64_t) 1<<10; } // subtracts 1 kibi until 0, adds 1 to k each time
-	char* res = malloc(64);
+	uint64_t e = 0, p = 0, t = 0, g = 0, m = 0, k = 0;
+#define ADD_NUM(val, num) { while (bytes >= val) { ++num; bytes -= val; } }
+	ADD_NUM(1ull<<60, e);
+	ADD_NUM(1ull<<50, p);
+	ADD_NUM(1ull<<40, t);
+	ADD_NUM(1ull<<30, g);
+	ADD_NUM(1ull<<20, m);
+	ADD_NUM(1ull<<10, k);
+	char* res = malloc(256);
+	char* tmp = malloc(256);
 	res[0] = 0;
-	// horrible code, i'm sorry
-	if (bytes > 0) { char* tmp = malloc(64); sprintf(tmp, "%li %s",  bytes, res); free(res); res = tmp; } // adds bytes to start of string
-	if (k     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liK %s", k,     res); free(res); res = tmp; } // adds k to start of string
-	if (m     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liM %s", m,     res); free(res); res = tmp; } // adds m to start of string
-	if (g     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liG %s", g,     res); free(res); res = tmp; } // adds g to start of string
-	if (t     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liT %s", t,     res); free(res); res = tmp; } // adds t to start of string
-	if (p     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liP %s", p,     res); free(res); res = tmp; } // adds p to start of string
-	if (e     > 0) { char* tmp = malloc(64); sprintf(tmp, "%liE %s", e,     res); free(res); res = tmp; } // adds e to start of string
+#define ADD_STR(suf, num) { if (num > 0) { sprintf(tmp, "%li"suf" %s", num, res); strcpy(res, tmp); } }
+	ADD_STR("",  bytes)
+	ADD_STR("K", k)
+	ADD_STR("M", m)
+	ADD_STR("G", g)
+	ADD_STR("T", t)
+	ADD_STR("P", p)
+	ADD_STR("E", e)
+#undef ADD_NUM
+#undef ADD_STR
 	return res;
 }
 bool parse_bytes(bool start, uint64_t* res, char* str) {
@@ -107,20 +106,28 @@ bool parse_bytes(bool start, uint64_t* res, char* str) {
 	}
 	uint64_t num = atoll(number); // convert the number
 	if (start == 1 && num == 0) return 0; // don't allow 0 if start is 1
+#define SUF1024(s0, s1, s2, s3, m) else if \
+	((suffix_len == 1 && strncmp(suffix, s0, 1) == 0) || (suffix_len == 3 && (strncmp(suffix, s1, 3) == 0 || strncmp(suffix, s2, 3) == 0 || strncmp(suffix, s3, 3) == 0))) \
+	num *= m;
+#define SUF1000(s0, s1, s2, m) else if \
+	((suffix_len == 2 && (strncmp(suffix, s0, 2) == 0 || strncmp(suffix, s1, 2) == 0)) || (suffix_len == 1 && strncmp(suffix, s2, 1) == 0)) \
+	num *= m;
 	if (suffix_len == 0); // allow no suffix
-	else if ((suffix_len == 1 && strncmp(suffix, "K", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "KiB", 3) == 0 || strncmp(suffix, "KIB", 3) == 0 || strncmp(suffix, "kib", 3) == 0))) num *= (uint64_t) 1<<10; // K, KiB, KIB, kib
-	else if ((suffix_len == 1 && strncmp(suffix, "M", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "MiB", 3) == 0 || strncmp(suffix, "MIB", 3) == 0 || strncmp(suffix, "mib", 3) == 0))) num *= (uint64_t) 1<<20; // M, MiB, MIB, mib
-	else if ((suffix_len == 1 && strncmp(suffix, "G", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "GiB", 3) == 0 || strncmp(suffix, "GIB", 3) == 0 || strncmp(suffix, "gib", 3) == 0))) num *= (uint64_t) 1<<30; // G, GiB, GIB, gib
-	else if ((suffix_len == 1 && strncmp(suffix, "T", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "TiB", 3) == 0 || strncmp(suffix, "TIB", 3) == 0 || strncmp(suffix, "tib", 3) == 0))) num *= (uint64_t) 1<<40; // T, TiB, TIB, tib
-	else if ((suffix_len == 1 && strncmp(suffix, "P", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "PiB", 3) == 0 || strncmp(suffix, "PIB", 3) == 0 || strncmp(suffix, "pib", 3) == 0))) num *= (uint64_t) 1<<50; // P, PiB, PIB, pib
-	else if ((suffix_len == 1 && strncmp(suffix, "E", 1) == 0) || (suffix_len == 3 && (strncmp(suffix, "EiB", 3) == 0 || strncmp(suffix, "EIB", 3) == 0 || strncmp(suffix, "eib", 3) == 0))) num *= (uint64_t) 1<<60; // E, EiB, EIB, eib
-	else if ((suffix_len == 2 && (strncmp(suffix, "KB", 2) == 0 || strncmp(suffix, "kb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "k", 1) == 0)) num *= 1e3;  // KB, kb, k
-	else if ((suffix_len == 2 && (strncmp(suffix, "MB", 2) == 0 || strncmp(suffix, "mb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "m", 1) == 0)) num *= 1e6;  // MB, mb, m
-	else if ((suffix_len == 2 && (strncmp(suffix, "GB", 2) == 0 || strncmp(suffix, "gb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "g", 1) == 0)) num *= 1e9;  // GB, gb, g
-	else if ((suffix_len == 2 && (strncmp(suffix, "TB", 2) == 0 || strncmp(suffix, "tb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "t", 1) == 0)) num *= 1e12; // TB, tb, t
-	else if ((suffix_len == 2 && (strncmp(suffix, "PB", 2) == 0 || strncmp(suffix, "pb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "p", 1) == 0)) num *= 1e15; // PB, pb, p
-	else if ((suffix_len == 2 && (strncmp(suffix, "EB", 2) == 0 || strncmp(suffix, "eb", 2) == 0)) || (suffix_len == 1 && strncmp(suffix, "e", 1) == 0)) num *= 1e18; // EB, eb, e
+	SUF1024("K", "KiB", "KIB", "kib", 1ull<<10)
+	SUF1024("M", "MiB", "MIB", "mib", 1ull<<20)
+	SUF1024("G", "GiB", "GIB", "gib", 1ull<<30)
+	SUF1024("T", "TiB", "TIB", "tib", 1ull<<40)
+	SUF1024("P", "PiB", "PIB", "pib", 1ull<<50)
+	SUF1024("E", "EiB", "EIB", "eib", 1ull<<60)
+	SUF1000("KB", "kb", "k", 1000ull)
+	SUF1000("MB", "mb", "m", 1000000ull)
+	SUF1000("GB", "gb", "g", 1000000000ull)
+	SUF1000("TB", "tb", "t", 1000000000000ull)
+	SUF1000("PB", "pb", "p", 1000000000000000ull)
+	SUF1000("EB", "eb", "e", 1000000000000000000ull)
 	else return 0;
+#undef SUF1024
+#undef SUF1000
 	*res = num;
 	return 1;
 }
@@ -203,25 +210,25 @@ int main(int argc, char* argv[]) {
 		if (output_len == 0) { ++output_len; output[0] = "-"; } // add stdout if no arguments
 	}
 	FILE* input_streams[input_len];
+	char* input_streams_names[input_len];
 	FILE* output_streams[output_len];
-#define ERROR(x) { fprintf(stderr, "%s: %s\n", x, strerror(errno)); return errno; }
+	char* output_streams_names[output_len];
+#define ERROR(y, x) { fprintf(stderr, "%s %s: %s\n", y, x, strerror(errno)); return errno; }
 	{
-		char* input_streams_names[input_len];
-		char* output_streams_names[output_len];
 		size_t file_prefix_len = strlen(FILE_PREFIX);
 		size_t append_prefix_len = strlen(FILE_PREFIX);
 		for (size_t i = 0; i < input_len; ++i) {
 			if (strncmp(input[i], FILE_PREFIX, file_prefix_len) == 0) {
 				char* a = input[i] + file_prefix_len;
 				input_streams[i] = fopen(a, "rb"); // open file, read, binary
-				if (!input_streams[i]) ERROR(input[i]);
+				if (!input_streams[i]) ERROR("Input", input[i]);
 				input_streams_names[i] = a;
 			} else if (strcmp(input[i], STDIN) == 0) {
 				input_streams[i] = stdin; // set to stdin
 				input_streams_names[i] = "stdin";
 			} else {
 				input_streams[i] = fopen(input[i], "rb"); // open file, read, binary
-				if (!input_streams[i]) ERROR(input[i]);
+				if (!input_streams[i]) ERROR("Input", input[i]);
 				input_streams_names[i] = input[i];
 			}
 		}
@@ -229,14 +236,14 @@ int main(int argc, char* argv[]) {
 			if (strncmp(output[i], APPEND_PREFIX, append_prefix_len) == 0) {
 				char* a = output[i] + append_prefix_len;
 				output_streams[i] = fopen(a, "ab"); // open file, append, binary
-				if (!output_streams[i]) ERROR(a);
+				if (!output_streams[i]) ERROR("Output (append)", a);
 				char* b = malloc(strlen(a));
 				sprintf(b, "%s (append)", a);
 				output_streams_names[i] = b;
 			} else if (strncmp(output[i], FILE_PREFIX, file_prefix_len) == 0) {
 				char* a = output[i] + file_prefix_len;
 				output_streams[i] = fopen(a, "wb"); // open file, write, binary
-				if (!output_streams[i]) ERROR(a);
+				if (!output_streams[i]) ERROR("Output", a);
 				output_streams_names[i] = a;
 			} else if (strcmp(output[i], STDOUT) == 0) {
 				output_streams[i] = stdout; // set to stdout
@@ -246,7 +253,7 @@ int main(int argc, char* argv[]) {
 				output_streams_names[i] = "stderr";
 			} else {
 				output_streams[i] = fopen(output[i], "wb"); // open file, write, binary
-				if (!output_streams[i]) ERROR(output[i]);
+				if (!output_streams[i]) ERROR("Output", output[i]);
 				output_streams_names[i] = output[i];
 			}
 		}
@@ -278,16 +285,30 @@ int main(int argc, char* argv[]) {
 		uint8_t* data = malloc(block);
 		uint64_t len = 0;
 		while (1) {
+			if (!input_streams[i]) break;
 			if (feof(input_streams[i])) {
-				if (verbose) fprintf(stderr, "EOF, finished\n");
-				return 0;
+				if (verbose) fprintf(stderr, "Input %s: EOF\n", input_streams_names[i]);
+				input_streams[i] = NULL;
+				break;
 			}
 			if (ferror(input_streams[i])) {
-				if (verbose) fprintf(stderr, "Error\n");
-				return 1;
+				if (verbose) fprintf(stderr, "Input %s: Error\n", input_streams_names[i]);
+				input_streams[i] = NULL;
+				break;
 			}
 			len = fread(data, 1, block, input_streams[i]);
 			for (size_t j = 0; j < output_len; ++j) {
+				if (!output_streams[j]) continue;
+				if (feof(output_streams[j])) {
+					if (verbose) fprintf(stderr, "Output %s: EOF\n", output_streams_names[j]);
+					output_streams[j] = NULL;
+					continue;
+				}
+				if (ferror(output_streams[j])) {
+					if (verbose) fprintf(stderr, "Output %s: Error\n", output_streams_names[j]);
+					output_streams[j] = NULL;
+					continue;
+				}
 				if (hexdump) {
 					for (uint64_t k = 0; k < len; ++k) {
 						fprintf(output_streams[j], "%02x", data[k]);
