@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
-#include <time.h>
 #ifdef X
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
